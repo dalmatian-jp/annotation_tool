@@ -12,6 +12,7 @@ function App() {
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [column1, setColumn1] = useState('');
   const [column2, setColumn2] = useState('');
+  const [annotationColumn, setAnnotationColumn] = useState(''); // New state for annotation column
   const [annotationLabels, setAnnotationLabels] = useState('True,False');
   const [newLabel, setNewLabel] = useState('');
 
@@ -32,6 +33,7 @@ function App() {
           if (results.meta.fields) {
             setColumn1(results.meta.fields[0] || '');
             setColumn2(results.meta.fields[1] || '');
+            setAnnotationColumn(results.meta.fields[2] || ''); // Set default for annotation column
           }
         },
       });
@@ -59,6 +61,9 @@ function App() {
       formData.append('file', csvFile);
       formData.append('column1', column1);
       formData.append('column2', column2);
+      if (annotationColumn) {
+        formData.append('annotation_column', annotationColumn);
+      }
 
       try {
         const response = await fetch(`${API_URL}/api/upload_csv`, {
@@ -87,8 +92,16 @@ function App() {
       }
       const data = await response.json();
       setPairs(data.pairs);
-      setResults(new Array(data.pairs.length).fill(null));
-      setCurrentIndex(0);
+      
+      // バックエンドから受け取ったresultsをそのまま使用し、空文字列やnullを未判定として扱う
+      const processedResults = data.results.map((result: string | null) => 
+        (result === null || result === '') ? null : String(result)
+      );
+      setResults(processedResults);
+
+      // Find the first unjudged pair
+      const firstUnjudgedIndex = processedResults.findIndex((result: string | null) => result === null);
+      setCurrentIndex(firstUnjudgedIndex !== -1 ? firstUnjudgedIndex : data.pairs.length > 0 ? data.pairs.length - 1 : 0);
     } catch (err: any) {
       setError(err.message);
     }
@@ -161,7 +174,16 @@ function App() {
       }
       const data = await response.json();
       setPairs(data.pairs);
-      setResults(data.results);
+      
+      // バックエンドから受け取ったresultsをそのまま使用し、空文字列やnullを未判定として扱う
+      const processedResults = data.results.map((result: string | null) => 
+        (result === null || result === '') ? null : String(result)
+      );
+      setResults(processedResults);
+
+      // Find the first unjudged pair
+      const firstUnjudgedIndex = processedResults.findIndex((result: string | null) => result === null);
+      setCurrentIndex(firstUnjudgedIndex !== -1 ? firstUnjudgedIndex : data.pairs.length > 0 ? data.pairs.length - 1 : 0);
     } catch (err: any) {
       setError(err.message);
     }
@@ -271,6 +293,13 @@ function App() {
                             {csvHeaders.map(header => <option key={header} value={header}>{header}</option>)}
                           </select>
                         </div>
+                        <div className="col-md-6">
+                          <label htmlFor="annotationColumn" className="form-label">アノテーションカラム (任意)</label>
+                          <select id="annotationColumn" className="form-select" value={annotationColumn} onChange={(e) => setAnnotationColumn(e.target.value)}>
+                            <option value="">選択しない</option>
+                            {csvHeaders.map(header => <option key={header} value={header}>{header}</option>)}
+                          </select>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -322,7 +351,11 @@ function App() {
 
             <div className="text-center my-4">
               {labels.map(label => (
-                <button key={label} className="btn btn-primary mx-2" onClick={() => handleJudgment(label)}>
+                <button 
+                  key={label} 
+                  className={`btn ${results[currentIndex] === label ? 'btn-success' : 'btn-primary'} mx-2`} 
+                  onClick={() => handleJudgment(label)}
+                >
                   {label}
                 </button>
               ))}

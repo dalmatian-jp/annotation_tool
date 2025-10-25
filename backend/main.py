@@ -49,7 +49,7 @@ def set_lists(payload: ListsPayload):
     return {"message": "Lists received and pairs created."}
 
 @app.post("/api/upload_csv")
-def upload_csv(file: UploadFile = File(...), column1: str = Form(...), column2: str = Form(...)):
+def upload_csv(file: UploadFile = File(...), column1: str = Form(...), column2: str = Form(...), annotation_column: str = Form(None)):
     try:
         df = pd.read_csv(file.file)
         
@@ -66,14 +66,20 @@ def upload_csv(file: UploadFile = File(...), column1: str = Form(...), column2: 
             pairs.append(pair)
             
         db["pairs"] = pairs
-        db["results"] = [None] * len(pairs)
+        
+        if annotation_column and annotation_column in df.columns:
+            # NaNをNoneに変換してJSONエンコード可能にする
+            db["results"] = df[annotation_column].replace({pd.NA: None, float('nan'): None}).tolist()
+        else:
+            db["results"] = [None] * len(pairs)
+        
         return {"message": "CSV uploaded and pairs created."}
     except Exception as e:
         return {"error": str(e)}, 400
 
 @app.get("/api/pairs")
 def get_pairs():
-    return {"pairs": db["pairs"]}
+    return {"pairs": db["pairs"], "results": db["results"]}
 
 class JudgmentPayload(BaseModel):
     index: int
