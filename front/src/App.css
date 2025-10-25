@@ -1,0 +1,15 @@
+body {
+  background-color: #f8f9fa;
+}
+
+.navbar {
+  box-shadow: 0 2px 4px rgba(0,0,0,.1);
+}
+
+.card {
+  box-shadow: 0 2px 4px rgba(0,0,0,.1);
+}
+
+.table-hover tbody tr:hover {
+  background-color: #f1f1f1;
+}
